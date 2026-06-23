@@ -4,20 +4,20 @@
 
 ## 📚 快速导航
 
-- **[架构说明](#架构说明)** - 了解系统架构
-- **[1. Fork 后的操作](#1-fork-后的操作)** - 修改配置并发布镜像
-- **[2. 前置准备](#2-前置准备cloudflare-tunnel-配置)** - 配置 Cloudflare Tunnel
-- **[3. 快速开始](#3-快速开始)** - 选择部署方式
-- **[4. 部署指南](#4-部署指南)** - 详细部署步骤
-- **[5. 备份和还原](#5-备份和还原)** - 备份管理
-- **[6. 更新和卸载](#6-更新和卸载)** - 维护操作
-- **[7. 故障排查](#7-故障排查)** - 常见问题解决
-- **[8. 环境变量参考](#8-环境变量参考)** - 配置文档
-- **[9. 安全防护](#9-安全防护)** - 安全建议
+- **[🏗️ 架构说明](#🏗️-架构说明)** - 了解系统架构
+- **[🔧 1. Fork 后的操作](#🔧-1-fork-后的操作)** - 修改配置并发布镜像
+- **[📋 2. 前置准备](#📋-2-前置准备cloudflare-tunnel-配置)** - 配置 Cloudflare Tunnel
+- **[🚀 3. 快速开始](#🚀-3-快速开始)** - 选择部署方式
+- **[📦 4. 部署指南](#📦-4-部署指南)** - 详细部署步骤
+- **[💾 5. 备份和还原](#💾-5-备份和还原)** - 备份管理
+- **[🔄 6. 更新和卸载](#🔄-6-更新和卸载)** - 维护操作
+- **[🛠️ 7. 故障排查](#🛠️-7-故障排查)** - 常见问题解决
+- **[⚙️ 8. 环境变量参考](#⚙️-8-环境变量参考)** - 配置文档
+- **[🔐 9. 安全防护](#🔐-9-安全防护)** - 安全建议
 
 ---
 
-## 架构说明
+## 🏗️ 架构说明
 
 Cloudflare Tunnel 只需要把域名转发到容器内 Caddy，Caddy 负责路由转发到各个服务：
 
@@ -41,7 +41,7 @@ Caddy (:8001)
 
 ---
 
-## 1. Fork 后的操作
+## 🔧 1. Fork 后的操作
 
 ### 第一步：修改源码仓库配置
 
@@ -68,7 +68,7 @@ GitHub Actions 会自动：
 
 ---
 
-## 2. 前置准备：Cloudflare Tunnel 配置
+## 📋 2. 前置准备：Cloudflare Tunnel 配置
 
 #### 0. 启用 gRPC 支持
 
@@ -102,9 +102,43 @@ Type: HTTP
 URL: localhost:8001
 ```
 
+#### 4. GitHub 授权准备
+
+为 Komari 创建 GitHub OAuth 应用，用于面板登录授权认证：
+
+获取 github 认证授权: https://github.com/settings/applications/new
+
+**填写应用信息**（假设你的 Komari 主页域名为 `komari.xxxx.nyc.mn`）：
+
+- **Application name**: `komari`
+- **Homepage URL**: `https://komari.xxxx.nyc.mn/`
+- **Application description**: `Komari Dashboard`
+- **Authorization callback URL**: `https://komari.xxxx.nyc.mn/api/oauth_callback`
+
+创建后，你将获得：
+- **Client ID**
+- **Client Secret**
+
+在 Komari 面板设置中配置这两个值即可启用 GitHub 登录授权。
+
+#### 5. 获取 GitHub 的 PAT (Personal Access Token)
+
+用于 GitHub 备份和自动更新功能：
+
+1. 访问 [GitHub Personal Access Tokens](https://github.com/settings/tokens/new)
+2. 设置 Token 名称（如 `komari-backup`）
+3. 选择过期时间（建议不设置过期或设置较长时间）
+4. 选择所需的权限范围：
+   - ✅ **repo** - 完整的仓库访问权限
+   - ✅ **workflow** - 工作流文件管理权限
+5. 点击 **Generate token**
+6. 复制生成的 token（只会显示一次，务必保管好）
+
+将这个 PAT 作为 `GH_PAT` 环境变量使用。
+
 ---
 
-## 3. 快速开始
+## 🚀 3. 快速开始
 
 ### 部署方式选择
 
@@ -116,93 +150,46 @@ URL: localhost:8001
 
 ---
 
-## 4. 部署指南
+## 📦 4. 部署指南
 
 ### 方式一：Docker Compose（推荐）
 
-#### 创建 docker-compose.yml
+#### 使用 docker-compose.yml
 
-项目中已包含 `docker-compose.yml`，内容如下：
-
-```yaml
-services:
-  komari:
-    image: "ghcr.io/你自己的github名字/komari:latest"
-    container_name: komari
-    restart: unless-stopped
-    ports:
-      - "25774:25774"
-    environment:
-      # 面板登录凭证（必需）
-      ADMIN_USERNAME: "yourusername"
-      ADMIN_PASSWORD: "yourpassword"
-
-      # Cloudflare 隧道配置（必需）
-      ARGO_DOMAIN: "your-domain.com"
-      KOMARI_CLOUDFLARED_TOKEN: "eyJxxxxx"
-
-      # GitHub 备份配置（可选，全部填写才启用）
-      GH_BACKUP_USER: "your_github_username"
-      GH_REPO: "komari"
-      GH_BACKUP_BRANCH: "main"
-      GH_PAT: "ghp_xxxxxxxxxxxxxxxx"
-      GH_EMAIL: "your-email@example.com"
-
-      # 备份时间配置
-      BACKUP_TIME: "0 20 * * *"    # 每天 20:00 UTC 备份
-      BACKUP_DAYS: "10"             # 保留 10 天备份
-
-      # Caddy 反代配置
-      CADDY_PROXY_PORT: "8001"
-
-      # Komari 远程功能开关（默认关闭，设置为0表示开启）
-      KOMARI_DISABLE_WEB_SSH: "1"
-      KOMARI_DISABLE_REMOTE: "1"
-
-      # 节点订阅配置（设置 UUID 才启用）
-      UUID: ""
-      CF_IP: "ip.sb"
-      SUB_NAME: "komari"
-
-    volumes:
-      - ./komari-data:/app/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:25774/ >/dev/null && curl -fsS http://localhost:8001/ >/dev/null || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    logging:
-      options:
-        max-size: "5m"
-        max-file: "5"
-```
+项目中已包含 `docker-compose.yml`，其中标注了必填和可选配置。
 
 #### 修改配置
 
-编辑 `docker-compose.yml`，修改以下关键项：
+编辑项目根目录的 `docker-compose.yml`，修改以下必填项：
 
 ```yaml
 environment:
-  # 面板登录凭证（必需）
-  ADMIN_USERNAME: "yourusername"      # 改为你的用户名
-  ADMIN_PASSWORD: "yourpassword"      # 改为你的密码
+  # ===== 必填配置 =====
 
-  # Cloudflare 隧道配置（必需，从前置步骤获取）
+  # 面板登录凭证（必填）
+  ADMIN_USERNAME: "yourusername"          # 改为你的用户名
+  ADMIN_PASSWORD: "yourpassword"          # 改为你的密码
+
+  # Cloudflare 隧道配置（必填，从前置步骤获取）
   ARGO_DOMAIN: "your-domain.com"
   KOMARI_CLOUDFLARED_TOKEN: "eyJxxxxx"
 
-  # GitHub 备份配置（可选，全部填写才启用）
+  # GitHub 备份配置（必填，全部填写才启用备份）
   GH_BACKUP_USER: "your_github_username"
   GH_REPO: "komari"
+  GH_BACKUP_BRANCH: "main"
   GH_PAT: "ghp_xxxxxxxxxxxxxxxx"
   GH_EMAIL: "your-email@example.com"
 
+  # ===== 可选配置 =====
+
   # 节点订阅（可选，设置 UUID 才启用）
-  UUID: ""                            # 改为你的 UUID 以启用订阅
-  CF_IP: "ip.sb"                      # 连接地址，可填优选 IP/域名
-  SUB_HOST: ""                        # 留空使用 ARGO_DOMAIN
+  UUID: ""                                # 改为你的 UUID 以启用订阅
+  CF_IP: "ip.sb"                          # 连接地址，可填优选 IP/域名
+  SUB_NAME: "komari"
 ```
+
+**提示：** 完整的 `docker-compose.yml` 模板已在项目中提供，直接编辑该文件中的环境变量即可。所有必填项需要完整填写，可选项可根据需要启用。
 
 #### 启动容器
 
@@ -309,7 +296,7 @@ sudo systemctl restart komari
 
 ---
 
-## 5. 备份和还原
+## 💾 5. 备份和还原
 
 ### 快速导航
 
@@ -464,7 +451,7 @@ backup
 
 ---
 
-## 6. 更新和卸载
+## 🔄 6. 更新和卸载
 
 ### 快速导航
 
@@ -649,7 +636,7 @@ sudo systemctl daemon-reload
 ```
 
 ---
-## 7. 故障排查
+## 🛠️ 7. 故障排查
 
 ### 7.1、如果备份或者还原时出现下方提示
 
@@ -662,7 +649,7 @@ sudo systemctl daemon-reload
 
 ---
 
-## 8. 环境变量参考
+## ⚙️ 8. 环境变量参考
 
 ### 快速导航
 
@@ -720,7 +707,7 @@ https://komari.example.com/550e8400-e29b-41d4-a716-446655440000
 
 ---
 
-## 9. 安全防护
+## 🔐 9. 安全防护
 
 ### 启用双因素认证（2FA）
 
