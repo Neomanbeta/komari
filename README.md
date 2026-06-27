@@ -15,6 +15,7 @@
 - **[8. 环境变量参考](#8-环境变量参考)** - 配置文档
 - **[9. 安全防护](#9-安全防护)** - 安全建议
 
+
 ---
 
 <a id="0-架构说明"></a>
@@ -345,6 +346,9 @@ backup now
 支持的关键词：`backup` / `backup now` / `立即备份`
 服务启动时自动执行备份。
 
+定时备份每次成功运行都会生成新的 `komari-*.tar.gz` 并更新备份库 README；不会因为数据未变化就跳过提交。`BACKUP_TIME` 使用 UTC，例如 `0 */8 * * *` 对应北京时间 08:00、16:00、00:00。
+分钟级表达式也支持，例如 `*/10 * * * *` 表示每 10 分钟执行一次；部署平台里如果给表达式加了外层引号，容器启动时会自动清理后再写入 crontab。
+
 ---
 
 <a id="docker-环境-备份还原"></a>
@@ -380,6 +384,8 @@ docker exec komari /app/restore.sh f
 #### 查看日志
 
 ```bash
+docker exec komari cat /etc/crontabs/root
+docker exec komari supervisorctl -c /etc/supervisor.d/damon.conf status cron
 docker exec komari tail -f /tmp/backup.log
 docker exec komari tail -f /tmp/restore-cron.log
 ```
@@ -468,7 +474,7 @@ backup
 |---|---|
 | 如何快速还原最新备份？ | 编辑备份库 README 第一行为备份文件名，服务启动自动还原 |
 | 备份保留多久？ | 由 `BACKUP_DAYS` 控制，默认 10 天，过期自动删除 |
-| 能否修改备份时间？ | 可以，修改 `BACKUP_TIME`（cron 表达式） |
+| 能否修改备份时间？ | 可以，修改 `BACKUP_TIME`（UTC cron 表达式） |
 | 是否支持手动触发备份？ | 支持，使用对应环境的命令立即执行备份 |
 
 ---
@@ -706,7 +712,6 @@ sudo systemctl daemon-reload
 | `GH_REPO` | 备份仓库名（建议私有） | `komari` |
 | `GH_BACKUP_BRANCH` | 备份分支 | `main` |
 | `GH_PAT` | GitHub Personal Access Token | `ghp_xxxxx` |
-| `GH_EMAIL` | Git 提交邮箱 | `user@example.com` |
 
 ---
 
@@ -741,7 +746,8 @@ https://komari.example.com/550e8400-e29b-41d4-a716-446655440000
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `BACKUP_TIME` | `0 20 * * *` | cron 表达式，备份时间（UTC） |
+| `BACKUP_TIME` | `0 20 * * *` | UTC cron 表达式；`0 */8 * * *` 对应北京时间 08:00/16:00/00:00 |
+| `GH_EMAIL` | `${GH_BACKUP_USER}@users.noreply.github.com` | Git 提交邮箱，可不填 |
 | `BACKUP_DAYS` | `10` | 备份保留天数 |
 | `CADDY_PROXY_PORT` | `8001` | Caddy 监听端口 |
 | `KOMARI_DISABLE_WEB_SSH` | `1` | 设为 `0` 启用 Web SSH |
